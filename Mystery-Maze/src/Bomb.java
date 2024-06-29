@@ -8,20 +8,21 @@ public class Bomb {
     int BPosX,BPosY;
     int sixe = 32;
     boolean exploded;
-    Timer timer;
+    long explodeTime;
+    static long explosionDuration = 2000;
 
     public Bomb(int x, int y){
         BPosX = x;
         BPosY = y;
         exploded = false;
 
-        timer = new Timer(3000, new ActionListener() {
+        new Timer((int)explosionDuration, new ActionListener() {
             public void actionPerformed(ActionEvent e){
-                explode();
+                exploded = true;
+                explodeTime = System.currentTimeMillis();
+                ((Timer) e.getSource()).stop();
             }
-        });
-        timer.setRepeats(false);
-        timer.start();
+        }).start();
     }
 
     public Rectangle getBounds(){
@@ -34,6 +35,14 @@ public class Bomb {
 
     public boolean isExploded(){
         return exploded;
+    }
+
+    public long getExplodeTime() {
+        return explodeTime;
+    }
+
+    public static long getExplosionDuration() {
+        return explosionDuration;
     }
 
     public List<Rectangle> getExplosionBounds(List<Rectangle> walls){
