@@ -1,17 +1,13 @@
 import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Iterator;
-
+import java.util.*;
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import java.util.List;
+import javax.swing.Timer;
 
 public class Engine extends JPanel implements ActionListener, KeyListener, MouseListener, MouseMotionListener {
-
-    Timer timer;
-    
     Player player;
     Image HeroImg;
     List<Bomb> bombs;
@@ -21,7 +17,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     Point touchPoint;
     long lastTimeTap;
 
-    //LevelData
+    // LevelData
     LevelGenerator lvl;
     Image Tile1;
     Image Tile2;
@@ -31,29 +27,27 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     Image spikeImage;
 
     int TileSize = 32;
-    int x_Coord = 0;
-    int y_Coord = 0;
     int mazeWidth = 24;
     int mazeHeight = 24;
 
     boolean gameover = false;
     String message = "";
 
+    Enemy enemy;
+    Image enemyImage;
 
-    Engine(){
+    Engine() {
         player = new Player();
-        lvl = new LevelGenerator(mazeWidth,mazeHeight);
+        lvl = new LevelGenerator(mazeWidth, mazeHeight);
         bombs = new ArrayList<>();
         Walls = new ArrayList<>();
-        timer = new Timer(10,this);
-        timer.start();
         setFocusable(true);
         addKeyListener(this);
         addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) {
                 touchPoint = e.getPoint();
             }
-            
+
             public void mouseReleased(MouseEvent e) {
                 touchPoint = null;
             }
@@ -71,10 +65,21 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         setPreferredSize(new Dimension(mazeWidth * TileSize, mazeHeight * TileSize));
         LoadImages();
 
+        Random random = new Random();
+        int enemyX, enemyY;
+        do {
+            enemyX = random.nextInt(mazeWidth - 2) + 1;
+            enemyY = random.nextInt(mazeHeight - 2) + 1;
+        } while (lvl.maze[enemyX][enemyY] != 0 || (enemyX == player.PosX && enemyY == player.PosY));
+
+        enemy = new Enemy(lvl.maze,enemyX, enemyY);
+
+        Timer timer = new Timer(100, this);
+        timer.start();
     }
 
-    public void LoadImages(){
-        try{
+    public void LoadImages() {
+        try {
             HeroImg = loadImage("./V01_MainCharacter.png");
             Tile1 = loadImage("./V01_Tile1.png");
             Tile2 = loadImage("./V01_Tile2.png");
@@ -83,8 +88,9 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             bombFlashImg = loadImage("./V01_Bomb_Flash.png");
             exitImage = loadImage("./V01_Door.png");
             treasureImage = loadImage("./V01_Treasure.png");
+            enemyImage = loadImage("./V01_Enemy.png");
             spikeImage = loadImage("./V01_Obstacle.png");
-        } catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -97,24 +103,22 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         return image;
     }
 
-    public void paintComponent(Graphics g){
+    public void paintComponent(Graphics g) {
         super.paintComponent(g);
 
         drawLevel(g);
-        
-        g.drawImage(HeroImg,player.PosX * TileSize, player.PosY * TileSize, player.HeroWidth, player.HeroHeight,null);
+        g.drawImage(enemyImage, enemy.x * TileSize, enemy.y * TileSize, TileSize, TileSize, null);
+        g.drawImage(HeroImg, player.PosX * TileSize, player.PosY * TileSize, player.HeroWidth, player.HeroHeight, null);
 
-        if(gameover)
-        {
+        if (gameover) {
             g.setColor(Color.BLACK);
-            g.drawString(message, getWidth()/2 - 50, getHeight()/2);
+            g.drawString(message, getWidth() / 2 - 50, getHeight() / 2);
         }
 
         Iterator<Bomb> iterator = bombs.iterator();
         while (iterator.hasNext()) {
             Bomb bomb = iterator.next();
             if (bomb.isExploded()) {
-    
                 long elapsedTime = System.currentTimeMillis() - bomb.getExplodeTime();
                 if (elapsedTime > Bomb.getExplosionDuration()) {
                     iterator.remove();
@@ -127,7 +131,6 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                 for (Rectangle bound : explosionBounds) {
                     g.drawImage(bombFlashImg, bound.x, bound.y, bound.width, bound.height, null);
                 }
-
             } else {
                 // Draw bomb
                 g.drawImage(bombImg, bomb.BPosX, bomb.BPosY, 32, 32, null);
@@ -135,8 +138,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         }
     }
 
-    public void drawLevel(Graphics g)
-    {
+    public void drawLevel(Graphics g) {
         for (int x = 0; x < mazeWidth; x++) {
             for (int y = 0; y < mazeHeight; y++) {
                 switch (lvl.maze[x][y]) {
@@ -169,24 +171,19 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
 
     public void keyPressed(KeyEvent e) {
         int code = e.getKeyCode();
-        if(code == KeyEvent.VK_UP || code == KeyEvent.VK_W)
-        {
-            movePlayer(0,-1);
+        if (code == KeyEvent.VK_UP || code == KeyEvent.VK_W) {
+            movePlayer(0, -1);
         }
-        if(code == KeyEvent.VK_DOWN || code == KeyEvent.VK_S)
-        {
+        if (code == KeyEvent.VK_DOWN || code == KeyEvent.VK_S) {
             movePlayer(0, 1);
         }
-        if(code == KeyEvent.VK_LEFT || code == KeyEvent.VK_A)
-        {
-            movePlayer(- 1, 0);
+        if (code == KeyEvent.VK_LEFT || code == KeyEvent.VK_A) {
+            movePlayer(-1, 0);
         }
-        if(code == KeyEvent.VK_RIGHT || code == KeyEvent.VK_D)
-        {
+        if (code == KeyEvent.VK_RIGHT || code == KeyEvent.VK_D) {
             movePlayer(1, 0);
         }
-        if(code == KeyEvent.VK_SPACE)
-        {
+        if (code == KeyEvent.VK_SPACE) {
             deployBomb();
         }
     }
@@ -209,59 +206,69 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             } else if (lvl.maze[player.PosX][player.PosY] == 4) {
                 message = "You hit a spike!";
                 gameover = true;
+            }else if(enemy.isCollidingWithPlayer()){
+                message = "You were caught by enemy!";
+                gameover = true;
             }
         }
 
         repaint();
     }
 
-    public void keyReleased(KeyEvent e){}
-    public void keyTyped(KeyEvent e){}
-    
-    public void mouseDragged(MouseEvent e) {
-        Point newTouchPoint = e.getPoint();
-        if (touchPoint != null) {
-            int dx = newTouchPoint.x - touchPoint.x;
-            int dy = newTouchPoint.y - touchPoint.y;
-            
-            if (Math.abs(dx) > Math.abs(dy)) {
-                // Horizontal movement
-                if (dx > 0) {
-                    movePlayer(1, 0); // Move right
-                } else {
-                    movePlayer(-1, 0); // Move left
+    private void deployBomb() {
+        /*if (!gameover) {
+            Bomb bomb = new Bomb(player.PosX * TileSize, player.PosY * TileSize);
+            bombs.add(bomb);
+            new Timer().schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    bomb.explode();
+                    if (bomb.isCollidingWithPlayer(player.PosX, player.PosY)) {
+                        gameover = true;
+                        message = "You were caught in the explosion!";
+                    }
+                    repaint();
                 }
-            } else {
-                // Vertical movement
-                if (dy > 0) {
-                    movePlayer(0, 1); // Move down
-                } else {
-                    movePlayer(0, -1); // Move up
-                }
-            }
-        }
-        touchPoint = newTouchPoint;
+            }, 3000); // Bomb explodes after 3 seconds
+        }*/
     }
 
-    
+    public void keyTyped(KeyEvent e) {}
+    public void keyReleased(KeyEvent e) {}
+    public void mouseDragged(MouseEvent e) {}
     public void mouseMoved(MouseEvent e) {}
-
-    public void deployBomb(){
-        bombs.add(new Bomb(player.PosX,player.PosY));
-    }
-
-    public void actionPerformed(ActionEvent e){
+    public void actionPerformed(ActionEvent e) {
+        enemy.setPlayerPosition(player.PosX, player.PosY);
         repaint();
     }
 
-    public void mouseClicked(MouseEvent e) {}
+    @Override
+    public void mouseClicked(MouseEvent e) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'mouseClicked'");
+    }
 
-    public void mousePressed(MouseEvent e) {}
+    @Override
+    public void mousePressed(MouseEvent e) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'mousePressed'");
+    }
 
-    public void mouseReleased(MouseEvent e) {}
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'mouseReleased'");
+    }
 
-    public void mouseEntered(MouseEvent e) {}
+    @Override
+    public void mouseEntered(MouseEvent e) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'mouseEntered'");
+    }
 
-    public void mouseExited(MouseEvent e) {}
-    
+    @Override
+    public void mouseExited(MouseEvent e) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'mouseExited'");
+    }
 }
