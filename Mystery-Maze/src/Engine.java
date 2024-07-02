@@ -8,6 +8,10 @@ import java.util.List;
 import javax.swing.Timer;
 
 public class Engine extends JPanel implements ActionListener, KeyListener, MouseListener, MouseMotionListener {
+    
+    Color startScreenBG = new Color(255, 255, 153);
+    JButton startButton;
+    
     Player player;
     Image HeroImg;
     List<Bomb> bombs;
@@ -36,7 +40,62 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     Enemy enemy;
     Image enemyImage;
 
-    Engine() {
+    Timer timer;
+
+    JFrame jframe;
+    CardLayout cardL;
+    JPanel cardP;
+    JLabel timerLabel;
+    JLabel scoreLabel;
+    int gameTime = 0;
+    int score = 0;
+
+    JLabel endScreenTitle;
+    JLabel endScreenMessage;
+    JLabel endScreenTimer;
+    JLabel endScreenScore;
+
+    public Engine(JFrame frame, JPanel cardJPanel, CardLayout cardLayout) {
+
+        jframe = frame;
+        cardP = cardJPanel;
+        cardL = cardLayout;
+        setBackground(startScreenBG);
+
+        startButton = new JButton("START GAME");
+        startButton.setFont(new Font("Arial", Font.BOLD,24));
+        startButton.setForeground(Color.WHITE);
+        startButton.setBackground(Color.YELLOW);
+        startButton.setFocusPainted(false);
+        startButton.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+
+        setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.NORTH;
+        
+        JLabel mainChar = new JLabel(new ImageIcon("./V01_MainCharacter.png"));
+        add(mainChar, gbc);
+
+        JLabel title = new JLabel("Mystery Maze");
+        title.setFont(new Font("Arial", Font.BOLD, 36));
+        title.setForeground(Color.yellow);
+        gbc.gridy++;
+        add(title, gbc);
+
+        JLabel bomb = new JLabel(new ImageIcon("./V01_Bomb.png"));
+        gbc.gridy++;
+        add(bomb, gbc);
+
+        gbc.gridy++;
+        add(startButton, gbc);
+
+        ImageIcon treasure = new ImageIcon("./V01_Treasure.png");
+        startButton.setIcon(treasure);
+
+        startButton.addActionListener(this);
+
         player = new Player();
         lvl = new LevelGenerator(mazeWidth, mazeHeight);
         bombs = new ArrayList<>();
@@ -62,8 +121,19 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             }
         });
         addMouseMotionListener(this);
+
         setPreferredSize(new Dimension(mazeWidth * TileSize, mazeHeight * TileSize));
+        
         LoadImages();
+
+
+        JPanel hudPanel = new JPanel();
+        timerLabel = new JLabel("Time: 0");
+        scoreLabel = new JLabel("Score: 0");
+        hudPanel.add(timerLabel);
+        hudPanel.add(scoreLabel);
+        setLayout(new BorderLayout());
+        add(hudPanel, BorderLayout.NORTH);
 
         Random random = new Random();
         int enemyX, enemyY;
@@ -73,10 +143,44 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         } while (lvl.maze[enemyX][enemyY] != 0 || (enemyX == player.PosX && enemyY == player.PosY));
 
         enemy = new Enemy(lvl.maze,enemyX, enemyY);
-
-        Timer timer = new Timer(100, this);
+        timer = new Timer(100,this);
         timer.start();
+
+        timer = new Timer(1000, e -> {
+            if (!gameover) {
+                gameTime++;
+                timerLabel.setText("Time: " + gameTime);
+                repaint();
+            }
+        });
     }
+
+    public void startGame() {
+        gameover = false;
+        gameTime = 0;
+        score = 0;
+        timerLabel.setText("Time: 0");
+        scoreLabel.setText("Score: 0");
+        player = new Player();
+        lvl = new LevelGenerator(mazeWidth, mazeHeight);
+        bombs.clear();
+        Walls.clear();
+        LoadImages();
+
+        Random random = new Random();
+        int enemyX, enemyY;
+        do {
+            enemyX = random.nextInt(mazeWidth - 2) + 1;
+            enemyY = random.nextInt(mazeHeight - 2) + 1;
+        } while (lvl.maze[enemyX][enemyY] != 0);
+
+        enemy = new Enemy(lvl.maze, enemyX, enemyY);
+        timer.start();
+        requestFocus();
+    }
+
+
+
 
     public void LoadImages() {
         try {
@@ -115,24 +219,19 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             g.drawString(message, getWidth() / 2 - 50, getHeight() / 2);
         }
 
-        Iterator<Bomb> iterator = bombs.iterator();
-        while (iterator.hasNext()) {
-            Bomb bomb = iterator.next();
+        for (Bomb bomb : bombs) {
             if (bomb.isExploded()) {
                 long elapsedTime = System.currentTimeMillis() - bomb.getExplodeTime();
                 if (elapsedTime > Bomb.getExplosionDuration()) {
-                    iterator.remove();
+                    bombs.remove(bomb);
                     continue;
                 }
-                // Draw the bomb image centered at the bomb position
                 g.drawImage(bombImg, bomb.BPosX, bomb.BPosY, 32, 32, null);
-
                 List<Rectangle> explosionBounds = bomb.getExplosionBounds(Walls);
                 for (Rectangle bound : explosionBounds) {
                     g.drawImage(bombFlashImg, bound.x, bound.y, bound.width, bound.height, null);
                 }
             } else {
-                // Draw bomb
                 g.drawImage(bombImg, bomb.BPosX, bomb.BPosY, 32, 32, null);
             }
         }
@@ -201,14 +300,21 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             if (lvl.maze[player.PosX][player.PosY] == 2) {
                 message = "You found the exit!";
                 gameover = true;
+                timer.stop();
+                gameover = false;
+                showEndScreen();
             } else if (lvl.maze[player.PosX][player.PosY] == 3) {
                 message = "You found a hidden treasure!";
             } else if (lvl.maze[player.PosX][player.PosY] == 4) {
                 message = "You hit a spike!";
                 gameover = true;
+                timer.stop();
+                showEndScreen();
             }else if(enemy.isCollidingWithPlayer()){
                 message = "You were caught by enemy!";
                 gameover = true;
+                timer.stop();
+                showEndScreen();
             }
         }
 
@@ -216,59 +322,53 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     }
 
     private void deployBomb() {
-        /*if (!gameover) {
-            Bomb bomb = new Bomb(player.PosX * TileSize, player.PosY * TileSize);
+        if (!gameover) {
+            Bomb bomb = new Bomb(player.PosX, player.PosY);
             bombs.add(bomb);
-            new Timer().schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    bomb.explode();
-                    if (bomb.isCollidingWithPlayer(player.PosX, player.PosY)) {
-                        gameover = true;
-                        message = "You were caught in the explosion!";
-                    }
-                    repaint();
-                }
-            }, 3000); // Bomb explodes after 3 seconds
-        }*/
+            repaint();
+        }
+    }
+
+
+    public void actionPerformed(ActionEvent e) {
+        if (gameover) return;
+        enemy.setPlayerPosition(player.PosX, player.PosY);
+
+        if (enemy.isCollidingWithPlayer()) {
+            gameover = true;
+            message = "You were caught by the enemy!";
+            timer.stop();
+            showEndScreen();
+        }
+
+        repaint();
+    }
+
+
+    public void setEndScreenComponents(JLabel title, JLabel message, JLabel score, JLabel time){
+        endScreenTitle = title;
+        endScreenMessage = message;
+        endScreenScore = score;
+        endScreenTimer = time;
+    }
+    
+    public void showEndScreen(){
+        endScreenTitle.setText(gameover?"YOU LOSE": "YOU WIN");
+        endScreenMessage.setText(message);
+        cardL.show(cardP, "EndScreen");
+        String scoreText = "Your Score: " + score;
+        String timetext = "Your Time: " + gameTime;
+        endScreenScore.setText(scoreText);
+        endScreenTimer.setText(timetext);
     }
 
     public void keyTyped(KeyEvent e) {}
     public void keyReleased(KeyEvent e) {}
     public void mouseDragged(MouseEvent e) {}
     public void mouseMoved(MouseEvent e) {}
-    public void actionPerformed(ActionEvent e) {
-        enemy.setPlayerPosition(player.PosX, player.PosY);
-        repaint();
-    }
-
-    @Override
-    public void mouseClicked(MouseEvent e) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'mouseClicked'");
-    }
-
-    @Override
-    public void mousePressed(MouseEvent e) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'mousePressed'");
-    }
-
-    @Override
-    public void mouseReleased(MouseEvent e) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'mouseReleased'");
-    }
-
-    @Override
-    public void mouseEntered(MouseEvent e) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'mouseEntered'");
-    }
-
-    @Override
-    public void mouseExited(MouseEvent e) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'mouseExited'");
-    }
+    public void mouseClicked(MouseEvent e) {}
+    public void mousePressed(MouseEvent e) {}
+    public void mouseReleased(MouseEvent e) {}
+    public void mouseEntered(MouseEvent e) {}
+    public void mouseExited(MouseEvent e) {}
 }
