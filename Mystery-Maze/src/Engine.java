@@ -39,6 +39,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
 
     Enemy enemy;
     Image enemyImage;
+    Image enemyDeadImage;
 
     Timer timer;
 
@@ -142,7 +143,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             enemyY = random.nextInt(mazeHeight - 2) + 1;
         } while (lvl.maze[enemyX][enemyY] != 0 || (enemyX == player.PosX && enemyY == player.PosY));
 
-        enemy = new Enemy(lvl.maze,enemyX, enemyY);
+        enemy = new Enemy(lvl.maze,enemyX, enemyY, bombs);
         timer = new Timer(100,this);
         timer.start();
 
@@ -153,6 +154,18 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                 repaint();
             }
         });
+
+        long currentTime = System.currentTimeMillis();
+
+    // Update enemy position and state
+    if (enemy != null && !enemy.isDead) {
+        enemy.setPlayerPosition(player.PosX, player.PosY);
+    }
+
+    // Check if the dead image should be removed
+    if (enemy != null && enemy.isDead && currentTime - enemy.deathTime > Enemy.deathDisplayTime) {
+        enemy = null; // Remove the enemy
+    }
     }
 
     public void startGame() {
@@ -174,7 +187,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             enemyY = random.nextInt(mazeHeight - 2) + 1;
         } while (lvl.maze[enemyX][enemyY] != 0);
 
-        enemy = new Enemy(lvl.maze, enemyX, enemyY);
+        enemy = new Enemy(lvl.maze, enemyX, enemyY, bombs);
         timer.start();
         requestFocus();
     }
@@ -194,6 +207,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             treasureImage = loadImage("./V01_Treasure.png");
             enemyImage = loadImage("./V01_Enemy.png");
             spikeImage = loadImage("./V01_Obstacle.png");
+            enemyDeadImage = loadImage("./V01_Enemy_dead.png");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -211,7 +225,13 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         super.paintComponent(g);
 
         drawLevel(g);
-        g.drawImage(enemyImage, enemy.x * TileSize, enemy.y * TileSize, TileSize, TileSize, null);
+        if (enemy != null) {
+            if (enemy.isDead) {
+                g.drawImage(enemyDeadImage, enemy.deadX * TileSize, enemy.deadY * TileSize, 32, 32,null);
+            } else {
+                g.drawImage(enemyImage, enemy.x * TileSize, enemy.y * TileSize, 32, 32, null);
+            }
+        }
         g.drawImage(HeroImg, player.PosX * TileSize, player.PosY * TileSize, player.HeroWidth, player.HeroHeight, null);
 
         if (gameover) {
@@ -219,17 +239,44 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             g.drawString(message, getWidth() / 2 - 50, getHeight() / 2);
         }
 
-        for (Bomb bomb : bombs) {
+        Iterator<Bomb> iterator = bombs.iterator();
+        while (iterator.hasNext()) {
+            Bomb bomb = iterator.next();
             if (bomb.isExploded()) {
+                if(enemy != null && bomb.isWithinRange(enemy.x, enemy.y, lvl.maze)){
+                    enemy.die();
+                }
                 long elapsedTime = System.currentTimeMillis() - bomb.getExplodeTime();
                 if (elapsedTime > Bomb.getExplosionDuration()) {
-                    bombs.remove(bomb);
+                    iterator.remove();
                     continue;
                 }
                 g.drawImage(bombImg, bomb.BPosX, bomb.BPosY, 32, 32, null);
-                List<Rectangle> explosionBounds = bomb.getExplosionBounds(Walls);
+                List<Rectangle> explosionBounds = bomb.getExplosionBounds(lvl.maze);
                 for (Rectangle bound : explosionBounds) {
                     g.drawImage(bombFlashImg, bound.x, bound.y, bound.width, bound.height, null);
+                }
+
+                // Check for collision with player, enemy, and spikes
+                for (Rectangle bound : explosionBounds) {
+                    if (bound.intersects(new Rectangle(player.PosX * TileSize, player.PosY * TileSize, TileSize, TileSize))) {
+                        gameover = true;
+                        message = "You were caught in the explosion!";
+                        timer.stop();
+                        showEndScreen();
+                    }
+                    if (enemy != null && bound.intersects(new Rectangle(enemy.x * TileSize, enemy.y * TileSize, TileSize, TileSize))) {
+                        enemy = null; // Enemy destroyed
+                        score += 100; // Example: Increase score for killing enemy
+                    }
+                    // Check and destroy spikes if they are within explosion bounds
+                    for (int x = 0; x < mazeWidth; x++) {
+                        for (int y = 0; y < mazeHeight; y++) {
+                            if (lvl.maze[x][y] == 4 && bound.intersects(new Rectangle(x * TileSize, y * TileSize, TileSize, TileSize))) {
+                                lvl.maze[x][y] = 0; // Destroy spike
+                            }
+                        }
+                    }
                 }
             } else {
                 g.drawImage(bombImg, bomb.BPosX, bomb.BPosY, 32, 32, null);
@@ -293,7 +340,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         int newX = player.PosX + dx;
         int newY = player.PosY + dy;
 
-        if (newX >= 0 && newX < mazeWidth && newY >= 0 && newY < mazeHeight && (lvl.maze[newX][newY] == 0 || lvl.maze[newX][newY] == 2 || lvl.maze[newX][newY] == 3 || lvl.maze[newX][newY] == 4)) {
+        if (newX >= 0 && newX < mazeWidth && newY >= 0 && newY < mazeHeight && (lvl.maze[newX][newY] == 0 || lvl.maze[newX][newY] == 2 || lvl.maze[newX][newY] == 3 || lvl.maze[newX][newY] == 4) && !isBombAt(newX, newY)) {
             player.PosX = newX;
             player.PosY = newY;
 
@@ -310,15 +357,26 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                 gameover = true;
                 timer.stop();
                 showEndScreen();
-            }else if(enemy.isCollidingWithPlayer()){
+            }else if(enemy != null){
+                if(enemy.isCollidingWithPlayer()){
                 message = "You were caught by enemy!";
                 gameover = true;
                 timer.stop();
                 showEndScreen();
+                }
             }
         }
 
         repaint();
+    }
+
+    private boolean isBombAt(int x, int y){
+        for(Bomb bomb : bombs){
+            if(bomb.BPosX/32 == x && bomb.BPosY/32 == y){
+                return true;
+            }
+        }
+        return false;
     }
 
     private void deployBomb() {
@@ -332,14 +390,19 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
 
     public void actionPerformed(ActionEvent e) {
         if (gameover) return;
+        if(enemy != null){
         enemy.setPlayerPosition(player.PosX, player.PosY);
-
-        if (enemy.isCollidingWithPlayer()) {
-            gameover = true;
-            message = "You were caught by the enemy!";
-            timer.stop();
-            showEndScreen();
         }
+
+            if (enemy != null){ 
+                if(enemy.isCollidingWithPlayer()) {
+                gameover = true;
+                message = "You were caught by the enemy!";
+                timer.stop();
+                showEndScreen();
+                }
+
+            }
 
         repaint();
     }
@@ -367,8 +430,8 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     public void mouseDragged(MouseEvent e) {}
     public void mouseMoved(MouseEvent e) {}
     public void mouseClicked(MouseEvent e) {}
-    public void mousePressed(MouseEvent e) {}
-    public void mouseReleased(MouseEvent e) {}
     public void mouseEntered(MouseEvent e) {}
     public void mouseExited(MouseEvent e) {}
+    public void mousePressed(MouseEvent e) {}
+    public void mouseReleased(MouseEvent e) {}
 }

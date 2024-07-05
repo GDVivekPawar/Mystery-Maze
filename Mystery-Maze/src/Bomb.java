@@ -1,39 +1,33 @@
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.Timer;
 
 public class Bomb {
-    int BPosX,BPosY;
-    int sixe = 32;
+    int BPosX, BPosY;
+    int size = 32;
     boolean exploded;
     long explodeTime;
     static long explosionDuration = 2000;
+    private static final int RADIUS = 2;
 
-    public Bomb(int x, int y){
-        BPosX = x;
-        BPosY = y;
+    public Bomb(int x, int y) {
+        BPosX = x * size;
+        BPosY = y * size;
         exploded = false;
 
-        new Timer((int)explosionDuration, new ActionListener() {
-            public void actionPerformed(ActionEvent e){
-                exploded = true;
-                explodeTime = System.currentTimeMillis();
-                ((Timer) e.getSource()).stop();
-            }
+        new Timer((int) explosionDuration, e -> {
+            exploded = true;
+            explodeTime = System.currentTimeMillis();
+            ((Timer) e.getSource()).stop();
         }).start();
     }
 
-    public Rectangle getBounds(){
-        return new Rectangle(BPosX, BPosY, 32, 32);
+    public Rectangle getBounds() {
+        return new Rectangle(BPosX, BPosY, size, size);
     }
 
-    public void explode(){
-        exploded = true;
-    }
-
-    public boolean isExploded(){
+    public boolean isExploded() {
         return exploded;
     }
 
@@ -45,27 +39,44 @@ public class Bomb {
         return explosionDuration;
     }
 
-    public List<Rectangle> getExplosionBounds(List<Rectangle> walls){
+    public List<Rectangle> getExplosionBounds(int[][] maze) {
         List<Rectangle> explosionBounds = new ArrayList<>();
+        int tileSize = 32;
 
-        int radius = 64;
+        // Center explosion
+        explosionBounds.add(new Rectangle(BPosX, BPosY, tileSize, tileSize));
 
-        Rectangle up = new Rectangle(BPosX, BPosY - radius/2, 32, radius);
-        Rectangle down = new Rectangle(BPosX, BPosY, 32, radius);
-        Rectangle left = new Rectangle(BPosX - radius/2, BPosY, radius, 32);
-        Rectangle right = new Rectangle(BPosX, BPosY, radius, 32);
-
-        if (!isBlocked(up, walls)) explosionBounds.add(up);
-        if (!isBlocked(down, walls)) explosionBounds.add(down);
-        if (!isBlocked(left, walls)) explosionBounds.add(left);
-        if (!isBlocked(right, walls)) explosionBounds.add(right);
+        // Check in four directions: up, down, left, right
+        addExplosionBound(explosionBounds, maze, BPosX, BPosY - tileSize, RADIUS, 0, -1);
+        addExplosionBound(explosionBounds, maze, BPosX, BPosY + tileSize, RADIUS, 0, 1);
+        addExplosionBound(explosionBounds, maze, BPosX - tileSize, BPosY, RADIUS, -1, 0);
+        addExplosionBound(explosionBounds, maze, BPosX + tileSize, BPosY, RADIUS, 1, 0);
 
         return explosionBounds;
     }
 
-    public boolean isBlocked(Rectangle explosionBound, List<Rectangle> walls){
-        for (Rectangle wall : walls) {
-            if (explosionBound.intersects(wall)) {
+    private void addExplosionBound(List<Rectangle> explosionBounds, int[][] maze, int startX, int startY, int radius, int dx, int dy) {
+        for (int i = 0; i < radius; i++) {
+            int tileX = (startX / size) + i * dx;
+            int tileY = (startY / size) + i * dy;
+
+            if (tileX < 0 || tileX >= maze.length || tileY < 0 || tileY >= maze[0].length) {
+                break;
+            }
+
+            Rectangle bound = new Rectangle(tileX * size, tileY * size, size, size);
+            if (maze[tileX][tileY] == 1 || maze[tileX][tileY] == 5) { // Assuming 1 represents walls
+                break;
+            }
+            explosionBounds.add(bound);
+        }
+    }
+
+    public boolean isWithinRange(int x, int y, int[][] maze) {
+        List<Rectangle> explosionBounds = getExplosionBounds(maze);
+        Rectangle position = new Rectangle(x * size, y * size, size, size);
+        for (Rectangle bound : explosionBounds) {
+            if (bound.intersects(position)) {
                 return true;
             }
         }
