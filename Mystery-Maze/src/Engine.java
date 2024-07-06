@@ -15,6 +15,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     Player player;
     Image HeroImg;
     List<Bomb> bombs;
+    int noOfBombs = 3;
     Image bombImg;
     Image bombFlashImg;
     List<Rectangle> Walls;
@@ -48,6 +49,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     JPanel cardP;
     JLabel timerLabel;
     JLabel scoreLabel;
+    JLabel BombsRemaining;
     int gameTime = 0;
     int score = 0;
 
@@ -99,7 +101,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
 
         player = new Player();
         lvl = new LevelGenerator(mazeWidth, mazeHeight);
-        bombs = new ArrayList<>();
+        bombs = new ArrayList<>(3);
         Walls = new ArrayList<>();
         setFocusable(true);
         addKeyListener(this);
@@ -131,8 +133,10 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         JPanel hudPanel = new JPanel();
         timerLabel = new JLabel("Time: 0");
         scoreLabel = new JLabel("Score: 0");
+        BombsRemaining = new JLabel("Bombs: 3");
         hudPanel.add(timerLabel);
         hudPanel.add(scoreLabel);
+        hudPanel.add(BombsRemaining);
         setLayout(new BorderLayout());
         add(hudPanel, BorderLayout.NORTH);
 
@@ -166,6 +170,16 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     if (enemy != null && enemy.isDead && currentTime - enemy.deathTime > Enemy.deathDisplayTime) {
         enemy = null; // Remove the enemy
     }
+
+    Timer GiftBombTimer = new Timer(20000, new ActionListener() {
+        public void actionPerformed(ActionEvent e){
+            if(noOfBombs < 3){
+                noOfBombs++;
+                BombsRemaining.setText("Bombs: "+ noOfBombs);
+            }
+        }
+    });
+    GiftBombTimer.start();
     }
 
     public void startGame() {
@@ -174,6 +188,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         score = 0;
         timerLabel.setText("Time: 0");
         scoreLabel.setText("Score: 0");
+        BombsRemaining.setText("Bombs: 3");
         player = new Player();
         lvl = new LevelGenerator(mazeWidth, mazeHeight);
         bombs.clear();
@@ -245,6 +260,8 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             if (bomb.isExploded()) {
                 if(enemy != null && bomb.isWithinRange(enemy.x, enemy.y, lvl.maze)){
                     enemy.die();
+                    score += 100;
+                    scoreLabel.setText("Score = " + score);
                 }
                 long elapsedTime = System.currentTimeMillis() - bomb.getExplodeTime();
                 if (elapsedTime > Bomb.getExplosionDuration()) {
@@ -267,7 +284,6 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                     }
                     if (enemy != null && bound.intersects(new Rectangle(enemy.x * TileSize, enemy.y * TileSize, TileSize, TileSize))) {
                         enemy = null; // Enemy destroyed
-                        score += 100; // Example: Increase score for killing enemy
                     }
                     // Check and destroy spikes if they are within explosion bounds
                     for (int x = 0; x < mazeWidth; x++) {
@@ -380,9 +396,11 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     }
 
     private void deployBomb() {
-        if (!gameover) {
+        if (!gameover && noOfBombs > 0) {
             Bomb bomb = new Bomb(player.PosX, player.PosY);
             bombs.add(bomb);
+            noOfBombs--;
+            BombsRemaining.setText("Bombs: " + noOfBombs);
             repaint();
         }
     }

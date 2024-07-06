@@ -112,7 +112,7 @@ public class Game {
         JLabel ScoreLabel = new JLabel("", SwingConstants.CENTER);
         ScoreLabel.setFont(new Font("Arial", Font.PLAIN, 24));
         ScoreLabel.setForeground(Color.BLACK);
-        ScoreLabel.setBounds(width / 2 - 250, topMargin + 80, 150, 50);
+        ScoreLabel.setBounds(width / 2 - 300, topMargin + 80, 200, 50);
         endScreen.add(ScoreLabel);
 
         // Time Label
