@@ -30,6 +30,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     Image exitImage;
     Image treasureImage;
     Image spikeImage;
+    Image coinImage;
 
     int TileSize = 32;
     int mazeWidth = 24;
@@ -223,6 +224,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             enemyImage = loadImage("./V01_Enemy.png");
             spikeImage = loadImage("./V01_Obstacle.png");
             enemyDeadImage = loadImage("./V01_Enemy_dead.png");
+            coinImage = loadImage("./V01_Coin.png");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -260,7 +262,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             if (bomb.isExploded()) {
                 if(enemy != null && bomb.isWithinRange(enemy.x, enemy.y, lvl.maze)){
                     enemy.die();
-                    score += 100;
+                    score += 50;
                     scoreLabel.setText("Score = " + score);
                 }
                 long elapsedTime = System.currentTimeMillis() - bomb.getExplodeTime();
@@ -301,31 +303,34 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     }
 
     public void drawLevel(Graphics g) {
-        for (int x = 0; x < mazeWidth; x++) {
-            for (int y = 0; y < mazeHeight; y++) {
-                switch (lvl.maze[x][y]) {
-                    case 0:
-                        g.drawImage(Tile3, x * TileSize, y * TileSize, TileSize, TileSize, null);
-                        break;
-                    case 1:
-                        g.drawImage(Tile1, x * TileSize, y * TileSize, TileSize, TileSize, null);
-                        break;
-                    case 2:
-                        g.drawImage(exitImage, x * TileSize, y * TileSize, TileSize, TileSize, null);
-                        break;
-                    case 3:
-                        g.drawImage(treasureImage, x * TileSize, y * TileSize, TileSize, TileSize, null);
-                        break;
-                    case 4:
-                        g.drawImage(spikeImage, x * TileSize, y * TileSize, TileSize, TileSize, null);
-                        break;
-                    case 5:
-                        g.drawImage(Tile2, x * TileSize, y * TileSize, TileSize, TileSize, null);
-                        g.drawImage(Tile3, x * TileSize, (y + 1) * TileSize, TileSize, TileSize, null);
-                        break;
-                    default:
-                        g.drawImage(Tile3, x * TileSize, y * TileSize, TileSize, TileSize, null);
-                        break;
+        for (int x = 0; x < lvl.TileWidth; x++) {
+            for (int y = 0; y < lvl.TileHeight; y++) {
+                if (lvl.maze[x][y] == 0) {
+                    g.drawImage(Tile3, x * TileSize, y * TileSize, TileSize, TileSize, null);
+                }
+                if (lvl.maze[x][y] == 1) {
+                    g.drawImage(Tile1, x * TileSize, y * TileSize, TileSize, TileSize, null);
+                }
+                if (lvl.maze[x][y] == 2) {
+                    g.drawImage(exitImage, x * TileSize, y * TileSize, TileSize, TileSize, null);
+                }
+                if (lvl.maze[x][y] == 3) {
+                    g.drawImage(treasureImage, x * TileSize, y * TileSize, TileSize, TileSize, null);
+                }
+                if (lvl.maze[x][y] == 4) {
+                    g.drawImage(spikeImage, x * TileSize, y * TileSize, TileSize, TileSize, null);
+                }
+                if (lvl.maze[x][y] == 5) {
+                    g.drawImage(Tile2, x * TileSize, y * TileSize, TileSize, TileSize, null);
+                }
+            }
+        }
+    
+        // Draw coins after all other tiles
+        for (int x = 0; x < lvl.TileWidth; x++) {
+            for (int y = 0; y < lvl.TileHeight; y++) {
+                if (lvl.maze[x][y] == 6) { // Draw coin
+                    g.drawImage(coinImage, x * TileSize, y * TileSize, TileSize, TileSize, null);
                 }
             }
         }
@@ -356,7 +361,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         int newX = player.PosX + dx;
         int newY = player.PosY + dy;
 
-        if (newX >= 0 && newX < mazeWidth && newY >= 0 && newY < mazeHeight && (lvl.maze[newX][newY] == 0 || lvl.maze[newX][newY] == 2 || lvl.maze[newX][newY] == 3 || lvl.maze[newX][newY] == 4) && !isBombAt(newX, newY)) {
+        if (newX >= 0 && newX < mazeWidth && newY >= 0 && newY < mazeHeight && (lvl.maze[newX][newY] == 0 || lvl.maze[newX][newY] == 2 || lvl.maze[newX][newY] == 3 || lvl.maze[newX][newY] == 4 || lvl.maze[newX][newY] == 6) && !isBombAt(newX, newY)) {
             player.PosX = newX;
             player.PosY = newY;
 
@@ -367,12 +372,19 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                 gameover = false;
                 showEndScreen();
             } else if (lvl.maze[player.PosX][player.PosY] == 3) {
+                score += 100;
+                scoreLabel.setText("Score: " + score);
+                lvl.maze[newX][newY] = 0;
                 message = "You found a hidden treasure!";
             } else if (lvl.maze[player.PosX][player.PosY] == 4) {
                 message = "You hit a spike!";
                 gameover = true;
                 timer.stop();
                 showEndScreen();
+            }else if (lvl.maze[player.PosX][player.PosY] == 6) {
+                score += 10; // Increment score by 10 for each coin collected
+                scoreLabel.setText("Score: " + score); // Update HUD
+                lvl.maze[player.PosX][player.PosY] = 0; // Set to grass tile after collection
             }else if(enemy != null){
                 if(enemy.isCollidingWithPlayer()){
                 message = "You were caught by enemy!";
@@ -412,17 +424,17 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         enemy.setPlayerPosition(player.PosX, player.PosY);
         }
 
-            if (enemy != null){ 
+        if (enemy != null){ 
                 if(enemy.isCollidingWithPlayer()) {
                 gameover = true;
                 message = "You were caught by the enemy!";
                 timer.stop();
                 showEndScreen();
-                }
-
             }
 
-        repaint();
+        }
+
+
     }
 
 

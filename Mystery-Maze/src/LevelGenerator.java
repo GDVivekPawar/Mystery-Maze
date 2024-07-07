@@ -22,9 +22,7 @@ public class LevelGenerator {
         }
 
         for (int x = 0; x < TileWidth; x++) {
-            //maze[x][0] = 1;
             maze[x][TileHeight - 2] = 0;
-            //maze[TileWidth - 2][0] = 1;
             maze[x][TileHeight - 1] = 1;
         }
         for (int y = 1; y < TileHeight-1; y++) {
@@ -55,6 +53,17 @@ public class LevelGenerator {
             int sy = random.nextInt(TileHeight - 1) + 1;
             if (maze[sx][sy] == 0) {
                 maze[sx][sy] = 4; // 4 represents a spike obstacle
+            }
+        }
+
+        // Place coins
+        int coins = 30;
+        for (int i = 0; i < coins; i++) {
+            int cx = random.nextInt(TileWidth - 1) + 1;
+            int cy = random.nextInt(TileHeight - 1) + 1;
+            if (maze[cx][cy] == 0) {
+                maze[cx][cy] = 6; // 6 represents a coin
+                System.out.println("Coin placed at "+cx+", "+cy);
             }
         }
 
@@ -94,7 +103,7 @@ public class LevelGenerator {
     public void add3DWalls(){
         for(int x = 0; x < TileWidth; x++){
             for(int y = 0; y < TileHeight - 1; y++){
-                if(maze[x][y] == 1 && maze[x][y + 1] == 0){
+                if(maze[x][y] == 1 && ( maze[x][y + 1] == 0 || maze[x][y+1] == 6)){
                     maze[x][y] = 5;
                 }
             }
