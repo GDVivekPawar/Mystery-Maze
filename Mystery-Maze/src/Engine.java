@@ -43,6 +43,10 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     Image enemyImage;
     Image enemyDeadImage;
 
+    boolean haskey;
+    Image key;
+    int keyX, keyY;
+
     Timer timer;
 
     JFrame jframe;
@@ -58,6 +62,12 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     JLabel endScreenMessage;
     JLabel endScreenTimer;
     JLabel endScreenScore;
+
+    Sound GameBGM;
+    Sound GameWinSound;
+    Sound GameLoseSound;
+    Sound CoinPickUp;
+    Sound BombSound;
 
     public Engine(JFrame frame, JPanel cardJPanel, CardLayout cardLayout) {
 
@@ -96,6 +106,15 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         add(startButton, gbc);
 
         ImageIcon treasure = new ImageIcon("./V01_Treasure.png");
+
+        GameBGM = new Sound("./sounds/GameBGM.wav");
+        GameWinSound = new Sound("./sounds/GameWinSound.wav");
+        GameLoseSound = new Sound("./sounds/GameLoseSound.wav");
+        CoinPickUp = new Sound("./sounds/CoinPickUp.wav");
+        BombSound = new Sound("./sounds/BombSound.wav");
+
+        GameBGM.loop();
+
         startButton.setIcon(treasure);
 
         startButton.addActionListener(this);
@@ -104,6 +123,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         lvl = new LevelGenerator(mazeWidth, mazeHeight);
         bombs = new ArrayList<>(3);
         Walls = new ArrayList<>();
+        haskey = false;
         setFocusable(true);
         addKeyListener(this);
         addMouseListener(new MouseAdapter() {
@@ -147,6 +167,10 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             enemyX = random.nextInt(mazeWidth - 2) + 1;
             enemyY = random.nextInt(mazeHeight - 2) + 1;
         } while (lvl.maze[enemyX][enemyY] != 0 || (enemyX == player.PosX && enemyY == player.PosY));
+        do {
+            keyX = random.nextInt(mazeWidth - 2) + 1;
+            keyY = random.nextInt(mazeHeight - 2) + 1;
+        } while (lvl.maze[keyX][keyY] != 0 || (keyX == player.PosX && keyY == player.PosY));
 
         enemy = new Enemy(lvl.maze,enemyX, enemyY, bombs);
         timer = new Timer(100,this);
@@ -195,6 +219,8 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         bombs.clear();
         Walls.clear();
         LoadImages();
+        haskey = false;
+        GameBGM.loop();
 
         Random random = new Random();
         int enemyX, enemyY;
@@ -225,6 +251,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             spikeImage = loadImage("./V01_Obstacle.png");
             enemyDeadImage = loadImage("./V01_Enemy_dead.png");
             coinImage = loadImage("./V01_Coin.png");
+            key = loadImage("./V01_Key.png");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -274,6 +301,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                 List<Rectangle> explosionBounds = bomb.getExplosionBounds(lvl.maze);
                 for (Rectangle bound : explosionBounds) {
                     g.drawImage(bombFlashImg, bound.x, bound.y, bound.width, bound.height, null);
+                    BombSound.play();
                 }
 
                 // Check for collision with player, enemy, and spikes
@@ -334,6 +362,10 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                 }
             }
         }
+
+        if(!haskey){
+            g.drawImage(key, keyX * TileSize, keyY * TileSize, TileSize, TileSize, null);
+        }
     }
 
     public void keyPressed(KeyEvent e) {
@@ -362,8 +394,14 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
         int newY = player.PosY + dy;
 
         if (newX >= 0 && newX < mazeWidth && newY >= 0 && newY < mazeHeight && (lvl.maze[newX][newY] == 0 || lvl.maze[newX][newY] == 2 || lvl.maze[newX][newY] == 3 || lvl.maze[newX][newY] == 4 || lvl.maze[newX][newY] == 6) && !isBombAt(newX, newY)) {
+            if (newX == keyX && newY == keyY) {
+                CoinPickUp.play();
+                haskey = true;
+                lvl.maze[keyX][keyY] = 0; // remove the key from the map
+            }
             player.PosX = newX;
             player.PosY = newY;
+
 
             if (lvl.maze[player.PosX][player.PosY] == 2) {
                 message = "You found the exit!";
@@ -372,6 +410,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                 gameover = false;
                 showEndScreen();
             } else if (lvl.maze[player.PosX][player.PosY] == 3) {
+                CoinPickUp.play();
                 score += 100;
                 scoreLabel.setText("Score: " + score);
                 lvl.maze[newX][newY] = 0;
@@ -382,6 +421,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
                 timer.stop();
                 showEndScreen();
             }else if (lvl.maze[player.PosX][player.PosY] == 6) {
+                CoinPickUp.play();
                 score += 10; // Increment score by 10 for each coin collected
                 scoreLabel.setText("Score: " + score); // Update HUD
                 lvl.maze[player.PosX][player.PosY] = 0; // Set to grass tile after collection
@@ -446,6 +486,12 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
     }
     
     public void showEndScreen(){
+        if(gameover){
+            GameLoseSound.play();
+        }
+        else{
+            GameWinSound.play();
+        }
         endScreenTitle.setText(gameover?"YOU LOSE": "YOU WIN");
         endScreenMessage.setText(message);
         cardL.show(cardP, "EndScreen");
