@@ -403,7 +403,7 @@ public class Engine extends JPanel implements ActionListener, KeyListener, Mouse
             player.PosY = newY;
 
 
-            if (lvl.maze[player.PosX][player.PosY] == 2) {
+            if (lvl.maze[player.PosX][player.PosY] == 2 && haskey) {
                 message = "You found the exit!";
                 gameover = true;
                 timer.stop();
